@@ -3,25 +3,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 define([
-  'app/bower_components/fxa-js-client/fxa-client',
-  'intern',
   'intern!object',
-  'intern/node_modules/dojo/node!xmlhttprequest',
   'tests/lib/helpers',
   'tests/functional/lib/helpers'
-], function (FxaClient, intern, registerSuite, nodeXMLHttpRequest,
-  TestHelpers, FunctionalHelpers) {
-  var config = intern.config;
-
-  var AUTH_SERVER_ROOT = config.fxaAuthRoot;
-  var FORCE_AUTH_URL = config.fxaContentRoot + 'force_auth?context=fx_desktop_v2&service=sync';
-
-  var client;
+], function (registerSuite, TestHelpers, FunctionalHelpers) {
   var email;
   var PASSWORD = '12345678';
-  var url;
 
+  var createUser = FunctionalHelpers.createUser;
+  var fillOutForceAuth = FunctionalHelpers.thenify(FunctionalHelpers.fillOutForceAuth);
   var noSuchBrowserNotification = FunctionalHelpers.noSuchBrowserNotification;
+  var openForceAuth = FunctionalHelpers.thenify(FunctionalHelpers.openForceAuth);
   var respondToWebChannelMessage = FunctionalHelpers.respondToWebChannelMessage;
   var testIsBrowserNotified = FunctionalHelpers.testIsBrowserNotified;
 
@@ -30,11 +22,6 @@ define([
 
     beforeEach: function () {
       email = TestHelpers.createEmail();
-      url = FORCE_AUTH_URL + '&email=' + encodeURIComponent(email);
-
-      client = new FxaClient(AUTH_SERVER_ROOT, {
-        xhr: nodeXMLHttpRequest.XMLHttpRequest
-      });
 
       return FunctionalHelpers.clearBrowserState(this);
     },
@@ -42,27 +29,25 @@ define([
     'verified': function () {
       var self = this;
 
-      return client.signUp(email, PASSWORD, { preVerified: true })
-        .then(function () {
-          return FunctionalHelpers.openPage(self, url, '#fxa-force-auth-header')
-            .then(noSuchBrowserNotification(self, 'fxaccounts:logout'))
+      return this.remote
+        .then(createUser(email, PASSWORD, { preVerified: true }))
+        .then(openForceAuth(self, email, { context: 'fx_desktop_v2', service: 'sync' }))
 
-            .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: true } ))
+        .then(noSuchBrowserNotification(self, 'fxaccounts:logout'))
 
-            .then(function () {
-              return FunctionalHelpers.fillOutForceAuth(self, PASSWORD);
-            })
+        .then(respondToWebChannelMessage(self, 'fxaccounts:can_link_account', { ok: true } ))
 
-            // add a slight delay to ensure the page does not transition
-            .sleep(2000)
+        .then(fillOutForceAuth(self, PASSWORD))
 
-            // the page does not transition.
-            .findByCssSelector('#fxa-force-auth-header')
-            .end()
+        // add a slight delay to ensure the page does not transition
+        .sleep(2000)
 
-            .then(testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
-            .then(testIsBrowserNotified(self, 'fxaccounts:login'));
-        });
+        // the page does not transition.
+        .findByCssSelector('#fxa-force-auth-header')
+        .end()
+
+        .then(testIsBrowserNotified(self, 'fxaccounts:can_link_account'))
+        .then(testIsBrowserNotified(self, 'fxaccounts:login'));
     }
   });
 });

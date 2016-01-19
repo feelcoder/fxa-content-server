@@ -61,12 +61,16 @@ define(function (require, exports, module) {
         });
       }
 
+      // The account's uid may have changed, update the relier just in case.
+      // If the relier does not support an account `uid` change, the
+      // flow would have stopped in `beforeRender`.
+      this.relier.set('uid', account.get('uid'));
+
       this.logViewEvent('success');
       this.logViewEvent('signin.success');
 
       var brokerMethod = this.afterSignInBrokerMethod || 'afterSignIn';
       var navigateData = this.afterSignInNavigateData || {};
-
 
       return this.invokeBrokerMethod(brokerMethod, account)
         .then(this.navigate.bind(this, this.model.get('redirectTo') || 'settings', {}, navigateData));

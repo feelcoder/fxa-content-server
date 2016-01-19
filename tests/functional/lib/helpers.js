@@ -23,6 +23,7 @@ define([
   var EMAIL_SERVER_ROOT = config.fxaEmailRoot;
   var EXTERNAL_SITE_LINK_TEXT = 'More information';
   var EXTERNAL_SITE_URL = 'http://example.com';
+  var FORCE_AUTH_URL = config.fxaContentRoot + 'force_auth';
   var OAUTH_APP = config.fxaOauthApp;
   var RESET_PASSWORD_URL = config.fxaContentRoot + 'reset_password';
   var SETTINGS_URL = config.fxaContentRoot + 'settings';
@@ -389,6 +390,25 @@ define([
     return openFxaFromRp(context, page, urlSuffix, true);
   }
 
+  function openForceAuth(context, email, options) {
+    options = options || {};
+
+    var url = FORCE_AUTH_URL + '?email=' + encodeURIComponent(email);
+    if (options.uid) {
+      url += '&uid=' + encodeURIComponent(options.uid);
+    }
+
+    if (options.context) {
+      url += '&context=' + encodeURIComponent(options.context);
+    }
+
+    if (options.service) {
+      url += '&service=' + encodeURIComponent(options.service);
+    }
+
+    return openPage(context, url, options.header || '#fxa-force-auth-header');
+  }
+
   function reOpenWithAdditionalQueryParams(context, additionalQueryParams, waitForSelector) {
     return context.remote
       .getCurrentUrl()
@@ -463,6 +483,7 @@ define([
     options = options || {};
 
     var customizeSync = options.customizeSync || false;
+    var enterEmail = options.enterEmail !== false;
     var optInToMarketingEmail = options.optInToMarketingEmail || false;
     var age = options.age || 24;
     var submit = options.submit !== false;
@@ -480,7 +501,11 @@ define([
         }
       })
 
-      .then(type('input[type=email]', email))
+      .then(function () {
+        if (enterEmail) {
+          return type('input[type=email]', email).call(this);
+        }
+      })
       .then(type('input[type=password]', password))
       .then(type('#age', age || '24'))
 
@@ -818,6 +843,11 @@ define([
     };
   }
 
+  function noSuchErrorWasShown(context, selector) {
+    selector = selector || '.error[data-shown]';
+    return noSuchElement(context, selector);
+  }
+
   function testElementWasShown(context, selector) {
     return function () {
       return context.remote
@@ -979,6 +1009,19 @@ define([
     };
   }
 
+  function testElementDisabled(selector) {
+    return function () {
+      return this.parent
+        .findByCssSelector(selector)
+          .getAttribute('disabled')
+          .then(function (disabledValue) {
+            // attribute value is null if it does not exist
+            assert.notStrictEqual(disabledValue, null);
+          })
+        .end();
+    };
+  }
+
   function testElementExists(selector) {
     return function () {
       return this.parent
@@ -1015,7 +1058,9 @@ define([
     listenForWebChannelMessage: listenForWebChannelMessage,
     noSuchBrowserNotification: noSuchBrowserNotification,
     noSuchElement: noSuchElement,
+    noSuchErrorWasShown: noSuchErrorWasShown,
     openExternalSite: openExternalSite,
+    openForceAuth: openForceAuth,
     openFxaFromRp: openFxaFromRp,
     openFxaFromUntrustedRp: openFxaFromUntrustedRp,
     openPage: openPage,
@@ -1029,6 +1074,7 @@ define([
     pollUntil: pollUntil,
     respondToWebChannelMessage: respondToWebChannelMessage,
     testAreEventsLogged: testAreEventsLogged,
+    testElementDisabled: testElementDisabled,
     testElementExists: testElementExists,
     testElementTextInclude: testElementTextInclude,
     testElementValueEquals: testElementValueEquals,
