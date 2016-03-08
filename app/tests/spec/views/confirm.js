@@ -188,6 +188,20 @@ define(function (require, exports, module) {
             assert.isTrue(view.fxaClient.recoveryEmailStatus.called);
           });
       });
+
+      it('does not show errors on unexpected errors and reports exceptions', function () {
+        sinon.stub(view.fxaClient, 'recoveryEmailStatus', function () {
+          return p.reject(AuthErrors.toError('UNEXPECTED_ERROR'));
+        });
+
+        sinon.spy(view.sentryMetrics, 'captureException');
+
+        return view.afterVisible()
+          .then(function () {
+            assert.equal(view.$('.error').text(), '');
+            assert.isTrue(view.sentryMetrics.captureException.calledOnce, 'logs exception');
+          });
+      });
     });
 
     describe('submit', function () {
